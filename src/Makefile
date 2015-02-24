@@ -63,19 +63,27 @@ zoneevent :	LIBS +=		-lnvpair -lsysevent
 
 # These files will get run through jsstyle and jslint on 'make check'
 JS_CHECK_TARGETS=\
-  filewait.js \
+	filewait.js \
 	node_modules/{system,onlyif}.js \
 	vm/sbin/*.js \
-	vm/node_modules/{dladm,expander,proptable,utils,VM,qmp}.js \
+	vm/node_modules/{dladm,expander,proptable,utils,VM,qmp,openonerrlogger}.js \
 	vm/node_modules/vmload/*.js \
 	img/lib/*.js \
 	img/sbin/imgadm \
 	vm/tests/test-alias.js \
+	vm/tests/test-cleanup-on-failure.js \
+	vm/tests/test-create.js \
+	vm/tests/test-create-filesystems.js \
 	vm/tests/test-docker.js \
+	vm/tests/test-defaults.js \
 	vm/tests/test-indestructible.js \
 	vm/tests/test-internal_metadata_namespaces.js \
+	vm/tests/test-lastexited.js \
+	vm/tests/test-openonerrlogger.js \
+	vm/tests/test-reboot.js \
 	vm/tests/test-spoof-opts.js \
 	vm/tests/test-tmpfs.js \
+	vm/tests/test-update.js \
 	vm/tests/test-vrrp-nics.js \
 	vm/lib/metadata/*.js
 
@@ -288,6 +296,8 @@ ZUTIL_BINDINGS.NODE =	$(ZUTIL_SRCDIR)/../lib/zutil_bindings.node
 #
 TARGETS = \
 	bootparams \
+	dockerinit/build/dockerexec \
+	dockerinit/build/dockerinit \
 	diskinfo \
 	disklayout \
 	disklist \
@@ -371,6 +381,8 @@ install: all
 	sed -e "s|var expat.*;|var expat = require('./expat_binding');|" \
 	    < node-expat/lib/node-expat.js \
 	    > $(PREFIX_NODE)/node_modules/node-expat.js
+	cp dockerinit/build/dockerinit $(DESTDIR)/usr/vm/sbin/dockerinit
+	cp dockerinit/build/dockerexec $(DESTDIR)/usr/vm/sbin/dockerexec
 	cp zoneevent $(DESTDIR)/usr/vm/sbin/zoneevent
 	cp zfs_send $(DESTDIR)/usr/vm/sbin/zfs_send
 	cp zfs_recv $(DESTDIR)/usr/vm/sbin/zfs_recv
@@ -430,6 +442,7 @@ check: $(JSLINT)
 		echo $(PWD)/$$file; \
 		$(CSTYLE) $$file; \
 	done)
+	@(cd $(PWD)/dockerinit && $(MAKE) check)
 	@printf "\nC files ok!\n"
 	@printf "\n==> Running JavaScriptLint...\n"
 	@$(JSLINT) --nologo --conf=$(ROOT)/tools/jsl.node.conf \
@@ -475,6 +488,7 @@ clean:
 	-rm -f $(TARGETS) $(SMARTDC_TARGETS) $(SMARTDC_LIB_TARGETS) *.o \
 	    $(CLEANFILES)
 	-rm -rf node-sqlite3/build
+	@(cd dockerinit && $(MAKE) clean)
 	cd $(LOCKFD_SRC_DIR) && $(MAKE) clean
 
 include Makefile.targ
@@ -490,6 +504,14 @@ disklayout: disklayout.js
 disklist: disklist.sh
 	cp disklist.sh disklist
 	chmod 0755 disklist
+
+dockerinit/build/dockerexec: dockerinit/src/dockerexec.c \
+	    dockerinit/src/docker-common.c
+	@(cd dockerinit && $(MAKE) build/dockerexec)
+
+dockerinit/build/dockerinit: dockerinit/src/dockerinit.c \
+	    dockerinit/src/docker-common.c
+	@(cd dockerinit && $(MAKE) build/dockerinit)
 
 mkzpool: mkzpool.js
 	cp mkzpool.js mkzpool
